@@ -1,0 +1,5 @@
+{
+  "title": "Find inefficient report generation",
+  "description": "Analyze the report generation algorithm, describe its complexity with evidence, and recommend a simpler linear-time implementation.",
+  "sample": "defective-calculator"
+}

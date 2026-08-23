@@ -1,0 +1,14 @@
+root = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+end_of_line = crlf
+charset = utf-8
+insert_final_newline = true
+dotnet_style_qualification_for_field = false:suggestion
+
+[*.{json,yml,yaml,md}]
+indent_style = space
+indent_size = 2
+insert_final_newline = true

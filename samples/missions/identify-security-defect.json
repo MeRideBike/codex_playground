@@ -1,0 +1,5 @@
+{
+  "title": "Identify an output-encoding defect",
+  "description": "Inspect the sample's user-input presentation helper, explain the security risk, and propose a safe, minimal remediation without executing arbitrary code.",
+  "sample": "defective-calculator"
+}

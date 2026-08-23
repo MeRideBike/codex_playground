@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible problem in ForgeBoard.
+title: "bug: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for helping improve ForgeBoard. Please do not report security vulnerabilities here; use the private reporting link instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and the expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Give the smallest reproducible set of steps, commands, or sample mission.
+      placeholder: |
+        1. Run ...
+        2. Create a mission ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, .NET SDK version, browser (if relevant), and any relevant configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove secrets and private data before attaching diagnostics.

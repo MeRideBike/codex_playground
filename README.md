@@ -1,0 +1,130 @@
+# ForgeBoard
+
+[![CI](https://github.com/MeRideBike/codex_playground/actions/workflows/ci.yml/badge.svg)](https://github.com/MeRideBike/codex_playground/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/MeRideBike/codex_playground/actions/workflows/codeql.yml/badge.svg)](https://github.com/MeRideBike/codex_playground/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+ForgeBoard is an auditable software-engineering workflow platform. It demonstrates explicit agent stages, human approval gates, structured artifacts, and a durable audit trail. It is intentionally not a chat interface and does not conceal workflow decisions behind a single prompt.
+
+> **Project status:** Milestone 1 is a functional, local-first reference implementation. The default provider is deterministic, so the entire project runs without an AI account or credentials.
+
+## What it demonstrates
+
+- A durable, inspectable workflow: `Planner -> Researcher -> Human Approval -> Implementer -> Test Engineer -> Reviewer`.
+- Clear architectural boundaries: Domain, Application, Infrastructure, API, and Web UI.
+- SQLite-backed missions, step artifacts, approval decisions, and audit metadata.
+- A React/Vite dashboard with live SignalR updates.
+- A provider abstraction that supports future integrations without coupling core workflow logic to an SDK.
+- Tests, samples, architecture decision records, Docker support, and GitHub Actions automation.
+
+## Quick start
+
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- Node.js 22+ (only for the web dashboard)
+
+```powershell
+git clone https://github.com/MeRideBike/codex_playground.git ForgeBoard
+cd ForgeBoard
+dotnet restore ForgeBoard.sln
+dotnet run --project src/ForgeBoard.Api
+```
+
+The API listens on `http://localhost:5000` by default. Verify it with:
+
+```powershell
+Invoke-RestMethod http://localhost:5000/health
+```
+
+In a second terminal, run the dashboard:
+
+```powershell
+Set-Location src/ForgeBoard.Web
+npm install
+npm run dev
+```
+
+Open the URL Vite prints (normally `http://localhost:5173`). The development server proxies API and SignalR traffic to the API.
+
+## API walkthrough
+
+Create a mission. It runs through research and pauses at the human approval gate.
+
+```powershell
+$mission = Invoke-RestMethod -Method Post -ContentType 'application/json' `
+  -Uri http://localhost:5000/api/missions `
+  -Body '{"title":"Fix calculator regression","description":"Diagnose the failing calculator sample and propose a safe fix."}'
+$mission.id
+```
+
+Approve it to continue the remaining workflow:
+
+```powershell
+Invoke-RestMethod -Method Post -ContentType 'application/json' `
+  -Uri "http://localhost:5000/api/missions/$($mission.id)/approval" `
+  -Body '{"outcome":"Approved","comment":"The plan is sufficiently scoped. Proceed."}'
+```
+
+Available endpoints:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Liveness check |
+| `GET /api/missions` | List persisted missions |
+| `GET /api/missions/{id}` | Inspect a mission and its audit trail |
+| `POST /api/missions` | Start a new mission |
+| `POST /api/missions/{id}/approval` | Approve, reject, or request revision |
+| `/hubs/missions` | SignalR endpoint for mission updates |
+
+## Development
+
+```powershell
+dotnet build ForgeBoard.sln --configuration Release
+dotnet test ForgeBoard.sln --configuration Release
+
+Set-Location src/ForgeBoard.Web
+npm ci
+npm run build
+```
+
+To run the API in a container:
+
+```powershell
+docker compose up --build
+```
+
+## Architecture
+
+```text
+Web UI / HTTP / SignalR
+          |
+          v
+      Application  <-- workflow use cases and contracts
+          |
+          v
+        Domain     <-- state transitions and invariants
+          ^
+          |
+   Infrastructure  <-- SQLite and provider implementations
+```
+
+Agent outputs are structured artifacts. The audit record captures input, output, concise rationale summary, provider/model, tool metadata, error state, retry count, token usage, and estimated cost when available. ForgeBoard never requests or retains hidden model reasoning.
+
+Read the [Milestone 1 architecture](docs/architecture/milestone-1.md) and [ADRs](docs/adr) for the decisions behind this layout.
+
+## Security and responsible use
+
+Milestone 1 does not execute arbitrary commands, access arbitrary repositories, or require credentials. Future providers must be configured with environment variables or user secrets, never committed configuration. Please read [SECURITY.md](SECURITY.md) before opening a security report.
+
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), follow the [Code of Conduct](CODE_OF_CONDUCT.md), and use the supplied issue and pull-request templates. Significant architectural changes should include an ADR.
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for intentionally deferred capabilities and planned design milestones.
+
+## License
+
+ForgeBoard is released under the [MIT License](LICENSE).

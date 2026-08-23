@@ -1,0 +1,5 @@
+{
+  "title": "Recommend a sample architecture improvement",
+  "description": "Review the sample's static utility design, identify one maintainability limitation, and propose an incremental, testable improvement.",
+  "sample": "defective-calculator"
+}

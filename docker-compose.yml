@@ -1,0 +1,11 @@
+services:
+  forgeboard-api:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - forgeboard-data:/app/data
+    environment:
+      ConnectionStrings__ForgeBoard: Data Source=/app/data/forgeboard.db
+volumes:
+  forgeboard-data:

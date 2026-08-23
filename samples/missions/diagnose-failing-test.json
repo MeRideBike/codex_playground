@@ -1,0 +1,5 @@
+{
+  "title": "Diagnose the failing calculator test",
+  "description": "Inspect samples/defective-calculator, identify why CalculatorTests fails, recommend the smallest correction, and verify the recommendation from the provided source.",
+  "sample": "defective-calculator"
+}

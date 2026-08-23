@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+TestResults/
+*.db
+*.db-shm
+*.db-wal
+*.user
+secrets.json
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
