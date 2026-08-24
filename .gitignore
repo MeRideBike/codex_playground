@@ -11,3 +11,4 @@ node_modules/
 dist/
 *.tsbuildinfo
 coverage/
+src/ForgeBoard.Api/App_Data/

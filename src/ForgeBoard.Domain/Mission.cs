@@ -5,14 +5,20 @@ public sealed class Mission
     private readonly List<RunStep> _steps = [];
     private readonly List<ApprovalRecord> _approvals = [];
 
-    private Mission() { Title = null!; Description = null!; WorkflowName = null!; }
+    private Mission() { Title = null!; Description = null!; WorkflowName = null!; OperationPolicy = null!; }
 
-    public Mission(string title, string description, string workflowName, DateTimeOffset createdAt)
+    public Mission(string title, string description, string workflowName, DateTimeOffset createdAt, string? sampleId = null, string? templateId = null, int? maxTokenUsage = null, decimal? maxEstimatedCost = null, string? operationPolicy = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
         ArgumentException.ThrowIfNullOrWhiteSpace(workflowName);
         Id = Guid.NewGuid(); Title = title.Trim(); Description = description.Trim(); WorkflowName = workflowName;
+        SampleId = string.IsNullOrWhiteSpace(sampleId) ? null : sampleId.Trim();
+        TemplateId = string.IsNullOrWhiteSpace(templateId) ? null : templateId.Trim();
+        if (maxTokenUsage is <= 0) throw new ArgumentOutOfRangeException(nameof(maxTokenUsage), "The token limit must be positive when specified.");
+        if (maxEstimatedCost is <= 0) throw new ArgumentOutOfRangeException(nameof(maxEstimatedCost), "The cost limit must be positive when specified.");
+        MaxTokenUsage = maxTokenUsage; MaxEstimatedCost = maxEstimatedCost;
+        OperationPolicy = string.IsNullOrWhiteSpace(operationPolicy) ? "[]" : operationPolicy;
         CreatedAt = createdAt; Status = MissionStatus.Draft;
     }
 
@@ -20,6 +26,11 @@ public sealed class Mission
     public string Title { get; private set; }
     public string Description { get; private set; }
     public string WorkflowName { get; private set; }
+    public string? SampleId { get; private set; }
+    public string? TemplateId { get; private set; }
+    public int? MaxTokenUsage { get; private set; }
+    public decimal? MaxEstimatedCost { get; private set; }
+    public string OperationPolicy { get; private set; }
     public MissionStatus Status { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? StartedAt { get; private set; }
@@ -39,6 +50,11 @@ public sealed class Mission
     public void Resume() => TransitionFrom(MissionStatus.AwaitingApproval, MissionStatus.Running);
     public void Complete(DateTimeOffset now) { TransitionFrom(MissionStatus.Running, MissionStatus.Completed); CompletedAt = now; }
     public void Fail(DateTimeOffset now) { Status = MissionStatus.Failed; CompletedAt = now; }
+    public void RestartAfterFailure()
+    {
+        if (Status != MissionStatus.Failed) throw new InvalidOperationException("Only failed missions can be retried.");
+        Status = MissionStatus.Running; CompletedAt = null;
+    }
     public void Reject(DateTimeOffset now) { TransitionFrom(MissionStatus.AwaitingApproval, MissionStatus.Rejected); CompletedAt = now; }
 
     public void RecordApproval(ApprovalRecord record) { ArgumentNullException.ThrowIfNull(record); _approvals.Add(record); }
@@ -97,7 +113,23 @@ public sealed class RunStep
     }
     public void Approve(DateTimeOffset now) { if (Status != RunStepStatus.AwaitingApproval) throw new InvalidOperationException("Step is not awaiting approval."); Status = RunStepStatus.Succeeded; CompletedAt = now; }
     public void Reject(DateTimeOffset now) { if (Status != RunStepStatus.AwaitingApproval) throw new InvalidOperationException("Step is not awaiting approval."); Status = RunStepStatus.Rejected; CompletedAt = now; }
-    public void Fail(string error, DateTimeOffset now) { ArgumentException.ThrowIfNullOrWhiteSpace(error); Error = error; CompletedAt = now; Status = RunStepStatus.Failed; }
+    public void Fail(string error, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(error);
+        Error = Error is null ? error : $"{Error}{Environment.NewLine}Retry {RetryAttempts}: {error}";
+        CompletedAt = now; Status = RunStepStatus.Failed;
+    }
+    public void Retry()
+    {
+        if (Status != RunStepStatus.Failed) throw new InvalidOperationException("Only failed steps can be retried.");
+        RetryAttempts++; StartedAt = null; CompletedAt = null; Status = RunStepStatus.Pending;
+    }
+    public void FailAfterOutput(string error, DateTimeOffset now)
+    {
+        if (Status != RunStepStatus.Succeeded) throw new InvalidOperationException("Only a succeeded step with recorded usage can exceed a budget.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(error);
+        Error = error; CompletedAt = now; Status = RunStepStatus.Failed;
+    }
 }
 
 public sealed record AgentAuditOutput(string StructuredOutput, string RationaleSummary, string Provider, string Model, string? ToolsInvoked, string? ToolResults, int? TokenUsage, decimal? EstimatedCost);

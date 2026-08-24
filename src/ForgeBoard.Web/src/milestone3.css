@@ -1,0 +1,47 @@
+select {
+  background: #0b1219;
+  border: 1px solid #344352;
+  border-radius: 5px;
+  color: #e6edf3;
+  padding: 10px;
+}
+
+.detail-header .sample-tag {
+  color: #e1b66c;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
+
+.detail-actions {
+  align-items:stretch;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.new-mission select {
+  background:#0b1219;
+  border:1px solid #344352;
+  border-radius:5px;
+  color:#e6edf3;
+  padding:10px;
+}
+
+.commit-callout {
+  align-items: center;
+  background: #0c2134;
+  border: 1px solid #345b78;
+  border-radius: 9px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.commit-callout strong { color: #b9eee0; font-size: 13px; }
+.commit-callout p { color: #9bb1c4; font-size: 12px; line-height: 1.45; margin: 4px 0 0; max-width: 540px; }
+
+@media (max-width: 720px) {
+  .commit-callout { align-items: stretch; flex-direction: column; }
+}

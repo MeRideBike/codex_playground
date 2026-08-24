@@ -7,5 +7,7 @@ services:
       - forgeboard-data:/app/data
     environment:
       ConnectionStrings__ForgeBoard: Data Source=/app/data/forgeboard.db
+      ForgeBoard__SamplesRoot: /app/samples
+      ForgeBoard__RunWorkspacesRoot: /app/data/runs
 volumes:
   forgeboard-data:

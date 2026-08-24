@@ -17,6 +17,10 @@ public sealed class ForgeBoardDbContext(DbContextOptions<ForgeBoardDbContext> op
             entity.Property(mission => mission.Title).HasMaxLength(200).IsRequired();
             entity.Property(mission => mission.Description).HasMaxLength(10_000).IsRequired();
             entity.Property(mission => mission.WorkflowName).HasMaxLength(200).IsRequired();
+            entity.Property(mission => mission.SampleId).HasMaxLength(100);
+            entity.Property(mission => mission.TemplateId).HasMaxLength(100);
+            entity.Property(mission => mission.OperationPolicy).HasMaxLength(4_000).IsRequired();
+            entity.Property(mission => mission.MaxEstimatedCost).HasPrecision(18, 6);
             entity.Property(mission => mission.Status).HasConversion<string>().HasMaxLength(40);
             entity.HasMany(mission => mission.Steps).WithOne().HasForeignKey(step => step.MissionId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(mission => mission.Approvals).WithOne().HasForeignKey(approval => approval.MissionId).OnDelete(DeleteBehavior.Cascade);
