@@ -130,6 +130,7 @@ public sealed class MissionWorkflowServiceTests
         public Task<AgentAuditOutput> ApplyCorrectionAsync(Guid missionId, SampleSnapshot sample, EngineeringMissionTemplate missionTemplate, IReadOnlyList<string> allowedCapabilities, CancellationToken cancellationToken) => Task.FromResult(new AgentAuditOutput("{}", "test operation", "test", "v1", "[]", "[]", 0, 0m));
         public Task<AgentAuditOutput> VerifyCorrectionAsync(Guid missionId, SampleSnapshot sample, EngineeringMissionTemplate missionTemplate, IReadOnlyList<string> allowedCapabilities, CancellationToken cancellationToken) => Task.FromResult(new AgentAuditOutput("{}", "test operation", "test", "v1", "[]", "[]", 0, 0m));
         public Task<IReadOnlyList<SampleFileChange>> GetChangesAsync(Guid missionId, SampleSnapshot sample, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<SampleFileChange>>([]);
+        public Task<AgentAuditOutput> CommitReviewedChangeAsync(Guid missionId, SampleSnapshot sample, EngineeringMissionTemplate missionTemplate, IReadOnlyList<string> allowedCapabilities, string summary, CancellationToken cancellationToken) => Task.FromResult(new AgentAuditOutput("{}", "test commit", "test", "v1", "[]", "[]", 0, 0m));
     }
     private sealed class InMemoryMissionRepository : IMissionRepository
     {

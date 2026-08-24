@@ -54,7 +54,31 @@ public interface IConstrainedSampleExecutor
     Task<AgentAuditOutput> ApplyCorrectionAsync(Guid missionId, SampleSnapshot sample, EngineeringMissionTemplate missionTemplate, IReadOnlyList<string> allowedCapabilities, CancellationToken cancellationToken);
     Task<AgentAuditOutput> VerifyCorrectionAsync(Guid missionId, SampleSnapshot sample, EngineeringMissionTemplate missionTemplate, IReadOnlyList<string> allowedCapabilities, CancellationToken cancellationToken);
     Task<IReadOnlyList<SampleFileChange>> GetChangesAsync(Guid missionId, SampleSnapshot sample, CancellationToken cancellationToken);
+    Task<AgentAuditOutput> CommitReviewedChangeAsync(Guid missionId, SampleSnapshot sample, EngineeringMissionTemplate missionTemplate, IReadOnlyList<string> allowedCapabilities, string summary, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Executes only a pre-approved verification harness from an application-owned sample workspace.
+/// Callers never supply a command line, executable, or arbitrary working directory.
+/// </summary>
+public interface IApprovedVerificationRunner
+{
+    Task<ApprovedVerificationResult> RunAsync(string workspacePath, string projectFileName, CancellationToken cancellationToken);
+}
+
+public sealed record ApprovedVerificationResult(int ExitCode, TimeSpan Duration, string StandardOutput, string StandardError);
+
+/// <summary>
+/// Manages an application-owned Git repository created from a bundled sample snapshot.
+/// It cannot access an existing user repository or accept caller-controlled Git arguments.
+/// </summary>
+public interface IIsolatedGitWorkspace
+{
+    Task InitializeBaselineAsync(string workspacePath, IReadOnlyList<string> allowlistedFiles, CancellationToken cancellationToken);
+    Task<IsolatedGitCommitResult> CommitChangedFilesAsync(string workspacePath, IReadOnlyList<string> allowlistedFiles, string summary, CancellationToken cancellationToken);
+}
+
+public sealed record IsolatedGitCommitResult(string CommitSha, string DiffStat, IReadOnlyList<string> ChangedFiles);
 
 public interface IClock { DateTimeOffset UtcNow { get; } }
 public sealed class SystemClock : IClock { public DateTimeOffset UtcNow => DateTimeOffset.UtcNow; }

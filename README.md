@@ -6,7 +6,7 @@
 
 ForgeBoard is an auditable software-engineering workflow platform. It demonstrates explicit agent stages, human approval gates, structured artifacts, and a durable audit trail. It is intentionally not a chat interface and does not conceal workflow decisions behind a single prompt.
 
-> **Project status:** Milestone 8 is a functional, local-first showcase application with a guided mission experience, reviewed engineering templates, audit export, per-mission budgets, and constrained sample execution. The default provider is deterministic, so the entire project runs without an AI account or credentials.
+> **Project status:** Milestone 10 is a functional, local-first showcase application with a guided mission experience, executable isolated verification, reviewable isolated Git commits, audit export, per-mission budgets, and constrained sample execution. The default provider is deterministic, so the entire project runs without an AI account or credentials.
 
 ## What it demonstrates
 
@@ -14,7 +14,8 @@ ForgeBoard is an auditable software-engineering workflow platform. It demonstrat
 - Clear architectural boundaries: Domain, Application, Infrastructure, API, and Web UI.
 - SQLite-backed missions, step artifacts, approval decisions, and audit metadata.
 - A React/Vite dashboard with live SignalR updates.
-- Allowlisted sample inspection with file hashes, a reviewed isolated correction, and static verification in the audit trail; no host-shell capability exists.
+- Allowlisted sample inspection with file hashes, a reviewed isolated correction, and executable .NET verification with captured process evidence.
+- A human-triggered, isolated Git review commit with a recorded commit hash and diff summary; it cannot access an existing user repository.
 - Four task-specific bundled templates: failing test, output-encoding security defect, inefficient implementation, and architecture recommendation.
 - Downloadable, versioned mission audit exports with an integrity hash and replay guidance; failed steps can be explicitly retried while retaining their earlier error evidence.
 - Optional mission token and estimated-cost limits, plus immutable operation policies that constrain reviewed sample capabilities.
@@ -51,6 +52,8 @@ corepack npm run dev
 ```
 
 Open the URL Vite prints (normally `http://localhost:5173`). The development server proxies API and SignalR traffic to the API.
+
+For a focused product walkthrough, see the [three-minute ForgeBoard showcase](docs/showcase.md).
 
 ### Optional OpenAI provider
 
@@ -94,6 +97,7 @@ Available endpoints:
 | `POST /api/missions` | Start a new mission |
 | `POST /api/missions/{id}/approval` | Approve, reject, or request revision |
 | `POST /api/missions/{id}/retry` | Retry a failed run step while preserving its prior error record |
+| `POST /api/missions/{id}/isolated-commit` | Create one human-triggered Git commit in the completed run's isolated workspace |
 | `GET /api/missions/{id}/audit-export` | Download a versioned JSON audit export |
 | `/hubs/missions` | SignalR endpoint for mission updates |
 
@@ -131,11 +135,11 @@ Web UI / HTTP / SignalR
 
 Agent outputs are structured artifacts. The audit record captures input, output, concise rationale summary, provider/model, tool metadata, error state, retry count, token usage, and estimated cost when available. ForgeBoard never requests or retains hidden model reasoning.
 
-Read the [Milestone 1 architecture](docs/architecture/milestone-1.md), [Milestone 2 dashboard design](docs/architecture/milestone-2.md), [Milestone 3 constrained capability](docs/architecture/milestone-3.md), [Milestone 4 execution capability](docs/architecture/milestone-4.md), [Milestone 5 mission templates](docs/architecture/milestone-5.md), [Milestone 6 audit export and recovery](docs/architecture/milestone-6.md), [Milestone 7 budgets and policies](docs/architecture/milestone-7.md), [Milestone 8 guided showcase](docs/architecture/milestone-8.md), [Milestone 9 showcase hardening](docs/architecture/milestone-9.md), and [ADRs](docs/adr) for the decisions behind this layout.
+Read the [Milestone 1 architecture](docs/architecture/milestone-1.md), [Milestone 2 dashboard design](docs/architecture/milestone-2.md), [Milestone 3 constrained capability](docs/architecture/milestone-3.md), [Milestone 4 execution capability](docs/architecture/milestone-4.md), [Milestone 5 mission templates](docs/architecture/milestone-5.md), [Milestone 6 audit export and recovery](docs/architecture/milestone-6.md), [Milestone 7 budgets and policies](docs/architecture/milestone-7.md), [Milestone 8 guided showcase](docs/architecture/milestone-8.md), [Milestone 9 showcase hardening](docs/architecture/milestone-9.md), [Milestone 10 executable verification](docs/architecture/milestone-10.md), and [ADRs](docs/adr) for the decisions behind this layout.
 
 ## Security and responsible use
 
-ForgeBoard does not execute arbitrary commands, access arbitrary repositories, or require credentials. Milestone 4 writes only an application-owned copy of one allowlisted sample and applies one reviewed rule. Future providers must be configured with environment variables or user secrets, never committed configuration. Please read [SECURITY.md](SECURITY.md) before opening a security report.
+ForgeBoard does not execute arbitrary commands, access arbitrary repositories, or require credentials. It runs only fixed `dotnet run` and Git operations against application-owned copies of bundled, allowlisted samples; the command, project, paths, remote, and branch are never user- or model-controlled. Future providers must be configured with environment variables or user secrets, never committed configuration. Please read [SECURITY.md](SECURITY.md) before opening a security report.
 
 ## Contributing
 

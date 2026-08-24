@@ -2,7 +2,7 @@ namespace ForgeBoard.Application;
 
 public sealed class BundledEngineeringMissionCatalog : IEngineeringMissionCatalog
 {
-    private static readonly string[] MutationCapabilities = ["sample.read", "sample.workspace.create", "sample.write", "sample.patch.apply", "sample.assert"];
+    private static readonly string[] MutationCapabilities = ["sample.read", "sample.workspace.create", "sample.write", "sample.patch.apply", "sample.assert", "sample.verify.dotnet", "sample.git.commit"];
     private static readonly string[] AdvisoryCapabilities = ["sample.read", "sample.workspace.create", "sample.assert"];
     private static readonly EngineeringMissionTemplate[] Templates =
     [

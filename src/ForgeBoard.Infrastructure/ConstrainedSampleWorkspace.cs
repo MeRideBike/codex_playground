@@ -21,9 +21,9 @@ public sealed class ConstrainedSampleWorkspace : ISampleWorkspace
     private static readonly SampleDefinition[] Samples = [DefectiveCalculator, InsecureGreeting, InefficientReporting];
     private static readonly Dictionary<string, string[]> AllowedFiles = new(StringComparer.Ordinal)
     {
-        [DefectiveCalculator.Id] = ["Calculator.cs", "CalculatorTests.cs", "UserInputFormatter.cs", "ReportGenerator.cs"],
-        [InsecureGreeting.Id] = ["GreetingRenderer.cs", "GreetingRendererTests.cs"],
-        [InefficientReporting.Id] = ["PrefixReport.cs", "PrefixReportTests.cs"]
+        [DefectiveCalculator.Id] = ["Calculator.cs", "CalculatorTests.cs", "UserInputFormatter.cs", "ReportGenerator.cs", "Calculator.Verification.csproj", "VerificationHarness.cs"],
+        [InsecureGreeting.Id] = ["GreetingRenderer.cs", "GreetingRendererTests.cs", "GreetingRenderer.Verification.csproj", "VerificationHarness.cs"],
+        [InefficientReporting.Id] = ["PrefixReport.cs", "PrefixReportTests.cs", "PrefixReport.Verification.csproj", "VerificationHarness.cs"]
     };
     private readonly string _samplesRoot;
 

@@ -90,6 +90,20 @@ app.MapPost("/api/missions/{missionId:guid}/retry", async (Guid missionId, Missi
     catch (KeyNotFoundException) { return Results.NotFound(); }
     catch (InvalidOperationException exception) { return Results.Conflict(new { error = exception.Message }); }
 });
+app.MapPost("/api/missions/{missionId:guid}/isolated-commit", async (Guid missionId, IsolatedCommitRequest request, MissionWorkflowService service, IHubContext<MissionHub> hub, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Summary) || request.Summary.Length > 300)
+        return Results.ValidationProblem(new Dictionary<string, string[]> { ["summary"] = ["An isolated commit summary of 1 to 300 characters is required."] });
+    try
+    {
+        var mission = await service.CreateIsolatedCommitAsync(missionId, request.Summary, cancellationToken);
+        await hub.Clients.All.SendAsync("missionUpdated", mission.Id, cancellationToken);
+        return Results.Ok(mission);
+    }
+    catch (KeyNotFoundException) { return Results.NotFound(); }
+    catch (InvalidOperationException exception) { return Results.Conflict(new { error = exception.Message }); }
+    catch (ArgumentException exception) { return Results.ValidationProblem(new Dictionary<string, string[]> { ["summary"] = [exception.Message] }); }
+});
 app.MapHub<MissionHub>("/hubs/missions");
 app.Run();
 

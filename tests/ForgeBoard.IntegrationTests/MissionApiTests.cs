@@ -98,8 +98,10 @@ public sealed class MissionApiTests : IClassFixture<ForgeBoardApiFactory>
         Assert.Contains("deterministic-sample-executor", implementer.Provider);
         Assert.Contains("Subtract now subtracts", implementer.StructuredOutput);
         var testEngineer = completed.Steps.Single(step => step.NodeKey == "test-engineer");
-        Assert.Contains("Static verification passed", testEngineer.StructuredOutput);
+        Assert.Contains("approved runtime verification passed", testEngineer.StructuredOutput);
         Assert.Contains("sample.assert", testEngineer.ToolsInvoked);
+        Assert.Contains("sample.verify.dotnet", testEngineer.ToolsInvoked);
+        Assert.Contains("Calculator verification passed", testEngineer.ToolResults);
     }
 
     [Fact]
@@ -163,6 +165,30 @@ public sealed class MissionApiTests : IClassFixture<ForgeBoardApiFactory>
         Assert.Equal("Calculator.cs", change.Path);
         Assert.Contains("left + right", change.OriginalContent);
         Assert.Contains("left - right", change.UpdatedContent);
+    }
+
+    [Fact]
+    public async Task CompletedSampleMissionCanCreateOneHumanTriggeredIsolatedGitCommit()
+    {
+        var createResponse = await _client.PostAsJsonAsync("/api/missions", new { title = "Commit reviewed calculator change", description = "Create a reviewable isolated commit after verification.", templateId = "diagnose-failing-test" });
+        var created = await createResponse.Content.ReadFromJsonAsync<MissionResponse>();
+        Assert.NotNull(created);
+        var approvalResponse = await _client.PostAsJsonAsync($"/api/missions/{created.Id}/approval", new { outcome = "Approved", comment = "Apply and verify the reviewed correction." });
+        Assert.Equal(HttpStatusCode.OK, approvalResponse.StatusCode);
+
+        var commitResponse = await _client.PostAsJsonAsync($"/api/missions/{created.Id}/isolated-commit", new { summary = "Record reviewed calculator correction" });
+
+        Assert.Equal(HttpStatusCode.OK, commitResponse.StatusCode);
+        var committed = await commitResponse.Content.ReadFromJsonAsync<MissionResponse>();
+        Assert.NotNull(committed);
+        var commitStep = committed.Steps.Single(step => step.NodeKey == "isolated-commit");
+        Assert.Equal("Succeeded", commitStep.Status);
+        Assert.Contains("isolated-git-workspace", commitStep.Provider);
+        Assert.Contains("commitSha", commitStep.StructuredOutput);
+        Assert.Contains("No user or host repository was accessed", commitStep.ToolResults);
+
+        var duplicateResponse = await _client.PostAsJsonAsync($"/api/missions/{created.Id}/isolated-commit", new { summary = "Try duplicate record" });
+        Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
     }
 
     [Fact]

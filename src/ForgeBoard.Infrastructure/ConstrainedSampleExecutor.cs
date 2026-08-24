@@ -16,8 +16,11 @@ public sealed class ConstrainedSampleExecutor : IConstrainedSampleExecutor
     private const string SecuritySampleId = "insecure-greeting";
     private const string PerformanceSampleId = "inefficient-reporting";
     private const string CalculatorFile = "Calculator.cs";
+    private const string CalculatorProject = "Calculator.Verification.csproj";
     private const string FormatterFile = "GreetingRenderer.cs";
+    private const string GreetingProject = "GreetingRenderer.Verification.csproj";
     private const string ReportFile = "PrefixReport.cs";
+    private const string ReportingProject = "PrefixReport.Verification.csproj";
     private const string DefectiveSubtract = "Subtract(int left, int right) => left + right";
     private const string CorrectSubtract = "Subtract(int left, int right) => left - right";
     private const string UnsafeGreeting = "$\"<h1>Hello {name}</h1>\"";
@@ -28,14 +31,20 @@ public sealed class ConstrainedSampleExecutor : IConstrainedSampleExecutor
     private static readonly string[] ArchitectureVerificationChecks = ["No source change was expected for this advisory template"];
     private static readonly string[] MutationCapabilities = ["sample.workspace.create", "sample.write", "sample.patch.apply"];
     private static readonly string[] AdvisoryImplementationCapabilities = ["sample.workspace.create", "sample.read"];
-    private static readonly string[] VerificationCapabilities = ["sample.read", "sample.assert"];
+    private static readonly string[] VerificationCapabilities = ["sample.read", "sample.assert", "sample.verify.dotnet"];
     private static readonly string[] AdvisoryVerificationCapabilities = ["sample.assert"];
     private readonly string _runWorkspacesRoot;
+    private readonly IApprovedVerificationRunner _verificationRunner;
+    private readonly IIsolatedGitWorkspace _gitWorkspace;
 
-    public ConstrainedSampleExecutor(string runWorkspacesRoot)
+    public ConstrainedSampleExecutor(string runWorkspacesRoot, IApprovedVerificationRunner verificationRunner, IIsolatedGitWorkspace gitWorkspace)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runWorkspacesRoot);
+        ArgumentNullException.ThrowIfNull(verificationRunner);
+        ArgumentNullException.ThrowIfNull(gitWorkspace);
         _runWorkspacesRoot = Path.GetFullPath(runWorkspacesRoot);
+        _verificationRunner = verificationRunner;
+        _gitWorkspace = gitWorkspace;
     }
 
     public async Task<AgentAuditOutput> ApplyCorrectionAsync(Guid missionId, SampleSnapshot sample, EngineeringMissionTemplate missionTemplate, IReadOnlyList<string> allowedCapabilities, CancellationToken cancellationToken)
@@ -43,6 +52,8 @@ public sealed class ConstrainedSampleExecutor : IConstrainedSampleExecutor
         Validate(sample, missionTemplate);
         EnsureAllowed(allowedCapabilities, missionTemplate.Id == "recommend-architecture-improvement" ? AdvisoryImplementationCapabilities : MutationCapabilities);
         var workspace = await CreateWorkspaceAsync(missionId, sample, cancellationToken);
+        if (missionTemplate.Id != "recommend-architecture-improvement")
+            await _gitWorkspace.InitializeBaselineAsync(workspace, sample.Files.Select(file => file.Path).ToArray(), cancellationToken);
         return missionTemplate.Id switch
         {
             "diagnose-failing-test" => await ApplyReplacementAsync(workspace, missionId, sample, CalculatorFile, DefectiveSubtract, CorrectSubtract, "reviewed-calculator-correction", "Calculator.Subtract now subtracts the right operand.", cancellationToken),
@@ -60,13 +71,13 @@ public sealed class ConstrainedSampleExecutor : IConstrainedSampleExecutor
         var workspace = GetWorkspacePath(missionId, sample.Id);
         return missionTemplate.Id switch
         {
-            "diagnose-failing-test" => await VerifyAsync(workspace, missionId, sample, CalculatorFile,
+            "diagnose-failing-test" => await VerifyAsync(workspace, missionId, sample, CalculatorFile, CalculatorProject,
                 content => content.Contains(CorrectSubtract, StringComparison.Ordinal) && RequireSampleFile(sample, "CalculatorTests.cs").Contains("Assert.Equal(2, Calculator.Subtract(5, 3))", StringComparison.Ordinal),
                 ["Calculator.Subtract uses left - right", "Existing CalculatorTests expectation is 2 for Subtract(5, 3)"], cancellationToken),
-            "identify-security-defect" => await VerifyAsync(workspace, missionId, sample, FormatterFile,
+            "identify-security-defect" => await VerifyAsync(workspace, missionId, sample, FormatterFile, GreetingProject,
                 content => content.Contains("System.Net.WebUtility.HtmlEncode(name)", StringComparison.Ordinal) && !content.Contains("Hello {name}", StringComparison.Ordinal),
                 ["Greeting encodes the user-controlled name", "Raw name interpolation is absent from the HTML response"], cancellationToken),
-            "find-inefficient-implementation" => await VerifyAsync(workspace, missionId, sample, ReportFile,
+            "find-inefficient-implementation" => await VerifyAsync(workspace, missionId, sample, ReportFile, ReportingProject,
                 content => content.Contains("foreach (var value in values)", StringComparison.Ordinal) && !content.Contains("values.Take(index).Sum()", StringComparison.Ordinal),
                 ["Prefix accumulation uses one pass", "Repeated Take(...).Sum() enumeration is absent"], cancellationToken),
             "recommend-architecture-improvement" => VerifyRecommendation(missionId, sample),
@@ -90,6 +101,22 @@ public sealed class ConstrainedSampleExecutor : IConstrainedSampleExecutor
                 changes.Add(new SampleFileChange(file.Path, file.Content, updated));
         }
         return changes;
+    }
+
+    public async Task<AgentAuditOutput> CommitReviewedChangeAsync(Guid missionId, SampleSnapshot sample, EngineeringMissionTemplate missionTemplate, IReadOnlyList<string> allowedCapabilities, string summary, CancellationToken cancellationToken)
+    {
+        Validate(sample, missionTemplate);
+        if (missionTemplate.Id == "recommend-architecture-improvement")
+            throw new InvalidOperationException("Advisory missions do not authorize an isolated source commit.");
+        EnsureAllowed(allowedCapabilities, ["sample.git.commit"]);
+        var workspace = GetWorkspacePath(missionId, sample.Id);
+        var commit = await _gitWorkspace.CommitChangedFilesAsync(workspace, sample.Files.Select(file => file.Path).ToArray(), summary, cancellationToken);
+        var runReference = ToRunReference(missionId, sample.Id);
+        return new AgentAuditOutput(
+            JsonSerializer.Serialize(new { operation = "isolated-git-commit", commitSha = commit.CommitSha, changedFiles = commit.ChangedFiles, workspace = runReference }),
+            "Created a human-triggered Git commit only in the isolated ForgeBoard workspace after the completed review.",
+            "isolated-git-workspace", "git-reviewed-v1", "[\"sample.git.commit\"]",
+            JsonSerializer.Serialize(new { workspace = runReference, commit = new { sha = commit.CommitSha, diffStat = commit.DiffStat, changedFiles = commit.ChangedFiles }, safety = "No user or host repository was accessed." }), 0, 0m);
     }
 
     private async Task<string> CreateWorkspaceAsync(Guid missionId, SampleSnapshot sample, CancellationToken cancellationToken)
@@ -116,16 +143,19 @@ public sealed class ConstrainedSampleExecutor : IConstrainedSampleExecutor
             JsonSerializer.Serialize(new { workspace = runReference, patch = new { file = fileName, sha256 = Hash(corrected) } }), 0, 0m);
     }
 
-    private static async Task<AgentAuditOutput> VerifyAsync(string workspace, Guid missionId, SampleSnapshot sample, string fileName, Func<string, bool> assertion, IReadOnlyList<string> checks, CancellationToken cancellationToken)
+    private async Task<AgentAuditOutput> VerifyAsync(string workspace, Guid missionId, SampleSnapshot sample, string fileName, string projectFileName, Func<string, bool> assertion, IReadOnlyList<string> checks, CancellationToken cancellationToken)
     {
         var content = await File.ReadAllTextAsync(GetContainedFilePath(workspace, fileName), Encoding.UTF8, cancellationToken);
         if (!assertion(content)) throw new InvalidOperationException("Static verification did not establish the reviewed correction.");
+        var verification = await _verificationRunner.RunAsync(workspace, projectFileName, cancellationToken);
+        if (verification.ExitCode != 0)
+            throw new InvalidOperationException($"Approved verification exited with code {verification.ExitCode}. {verification.StandardError}");
         var runReference = ToRunReference(missionId, sample.Id);
         return new AgentAuditOutput(
-            JsonSerializer.Serialize(new { verification = "Static verification passed.", result = "passed", checks, workspace = runReference, verifiedSha256 = Hash(content) }),
-            "Verified the reviewed source assertions statically; no host command was executed.",
-            "deterministic-sample-executor", "reviewed-rule-v2", "[\"sample.read\",\"sample.assert\"]",
-            JsonSerializer.Serialize(new { workspace = runReference, assertions = checks.Select(name => new { name, passed = true }) }), 0, 0m);
+            JsonSerializer.Serialize(new { verification = "Static and approved runtime verification passed.", result = "passed", checks, workspace = runReference, verifiedSha256 = Hash(content), command = "dotnet run --project [allowlisted project]" }),
+            "Verified reviewed source assertions and the bounded sample harness in the isolated application-owned workspace.",
+            "deterministic-sample-executor", "reviewed-rule-v3", "[\"sample.read\",\"sample.assert\",\"sample.verify.dotnet\"]",
+            JsonSerializer.Serialize(new { workspace = runReference, assertions = checks.Select(name => new { name, passed = true }), process = new { executable = "dotnet", operation = "run", project = projectFileName, verification.ExitCode, durationMilliseconds = Math.Round(verification.Duration.TotalMilliseconds), standardOutput = verification.StandardOutput, standardError = verification.StandardError } }), 0, 0m);
     }
 
     private static AgentAuditOutput CreateRecommendationAudit(Guid missionId, SampleSnapshot sample) => new(

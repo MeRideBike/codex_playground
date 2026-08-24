@@ -14,6 +14,7 @@ export const listMissionTemplates = () => request<EngineeringMissionTemplate[]>(
 export const createMission = (title: string, description: string, sampleId?: string, templateId?: string, maxTokenUsage?: number, maxEstimatedCost?: number) => request<Mission>("/api/missions", { method: "POST", body: JSON.stringify({ title, description, sampleId: sampleId || null, templateId: templateId || null, maxTokenUsage: maxTokenUsage ?? null, maxEstimatedCost: maxEstimatedCost ?? null }) });
 export const approveMission = (id: string, outcome: ApprovalOutcome, comment: string) => request<Mission>(`/api/missions/${id}/approval`, { method: "POST", body: JSON.stringify({ outcome, comment }) });
 export const retryMission = (id: string) => request<Mission>(`/api/missions/${id}/retry`, { method: "POST" });
+export const commitIsolatedChange = (id: string, summary: string) => request<Mission>(`/api/missions/${id}/isolated-commit`, { method: "POST", body: JSON.stringify({ summary }) });
 export async function downloadMissionAudit(id: string) {
   const response = await fetch(`/api/missions/${id}/audit-export`);
   if (!response.ok) throw new Error((await response.text()) || `Audit export failed (${response.status}).`);

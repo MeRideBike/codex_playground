@@ -17,7 +17,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMissionRepository, EfMissionRepository>();
         services.AddSingleton<ISampleWorkspace>(_ => new ConstrainedSampleWorkspace(samplesRoot));
         services.AddSingleton<IEngineeringMissionCatalog, BundledEngineeringMissionCatalog>();
-        services.AddSingleton<IConstrainedSampleExecutor>(_ => new ConstrainedSampleExecutor(runWorkspacesRoot));
+        services.AddSingleton<IApprovedVerificationRunner, ApprovedDotnetVerificationRunner>();
+        services.AddSingleton<IIsolatedGitWorkspace, IsolatedGitWorkspace>();
+        services.AddSingleton<IConstrainedSampleExecutor>(provider => new ConstrainedSampleExecutor(runWorkspacesRoot, provider.GetRequiredService<IApprovedVerificationRunner>(), provider.GetRequiredService<IIsolatedGitWorkspace>()));
         var provider = configuration["ForgeBoard:AgentProvider"] ?? "Fake";
         if (provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
         {

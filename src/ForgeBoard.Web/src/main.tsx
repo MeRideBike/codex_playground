@@ -1,7 +1,7 @@
 import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
-import { approveMission, createMission, downloadMissionAudit, getMission, listMissionChanges, listMissionTemplates, listMissions, listSamples, retryMission, type ApprovalOutcome, type EngineeringMissionTemplate, type Mission, type RunStep, type SampleDefinition, type SampleFileChange } from "./api";
+import { approveMission, commitIsolatedChange, createMission, downloadMissionAudit, getMission, listMissionChanges, listMissionTemplates, listMissions, listSamples, retryMission, type ApprovalOutcome, type EngineeringMissionTemplate, type Mission, type RunStep, type SampleDefinition, type SampleFileChange } from "./api";
 import "./styles.css";
 import "./milestone3.css";
 
@@ -99,6 +99,16 @@ function App() {
     finally { setSubmitting(false); }
   }
 
+  async function createIsolatedCommit() {
+    if (!selectedMission) return;
+    setSubmitting(true);
+    try {
+      const mission = await commitIsolatedChange(selectedMission.id, "Create reviewed ForgeBoard isolated change record.");
+      setMissions((current) => current.map((item) => item.id === mission.id ? mission : item)); setSelectedStepId(undefined); setError(undefined);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Creating the isolated commit failed."); }
+    finally { setSubmitting(false); }
+  }
+
   return <div className="app-shell">
     <aside className="sidebar">
       <a className="brand" href="#top"><span>F</span> ForgeBoard</a>
@@ -131,7 +141,7 @@ function App() {
 
       <section id="missions" className="workbench" aria-label="Mission workbench">
         <div className="mission-list panel"><div className="panel-heading"><div><p className="eyebrow">Mission history</p><h2>Runs you can inspect</h2></div><span className="count">{missions.length}</span></div>{loading && <p className="empty-state">Loading your local missions…</p>}{!loading && missions.length === 0 && <div className="empty-state"><strong>No mission yet.</strong><p>Choose a scenario above and start the guided walkthrough.</p></div>}{missions.map((mission) => <button key={mission.id} className={`mission-card ${mission.id === selectedMission?.id ? "selected" : ""}`} onClick={() => { setSelectedId(mission.id); setSelectedStepId(undefined); }}><div><strong>{mission.title}</strong><small>{mission.templateId ? prettyTemplate(mission.templateId) : "Custom mission"}</small></div><StatusBadge status={mission.status} /><div className="mission-card-footer"><span>{completion(mission)}% complete</span><span>{formatDuration(mission.startedAt, mission.completedAt)}</span></div></button>)}</div>
-        <MissionDetail mission={selectedMission} selectedStep={selectedStep} changes={changes} onSelectStep={setSelectedStepId} />
+        <MissionDetail mission={selectedMission} selectedStep={selectedStep} changes={changes} committing={submitting} onSelectStep={setSelectedStepId} onCreateCommit={createIsolatedCommit} />
       </section>
 
       {awaitingApproval && selectedMission && <section className="approval-panel panel" aria-labelledby="approval-heading"><div><p className="eyebrow">Your decision is needed</p><h2 id="approval-heading">Review the evidence before allowing the next stage</h2><p>The plan and research are complete. Approve to release the reviewed operation, ask for stronger research, or stop the mission.</p></div><div className="approval-controls"><textarea aria-label="Approval comment" value={comment} onChange={(event) => setComment(event.target.value)} maxLength={4000} rows={3} /><div><button className="approve" disabled={submitting || !comment.trim()} onClick={() => void decide("Approved")}>Approve reviewed work</button><button className="revision" disabled={submitting || !comment.trim()} onClick={() => void decide("RevisionRequested")}>Request revision</button><button className="reject" disabled={submitting || !comment.trim()} onClick={() => void decide("Rejected")}>Stop mission</button></div></div></section>}
@@ -142,7 +152,7 @@ function App() {
   </div>;
 }
 
-function MissionDetail({ mission, selectedStep, changes, onSelectStep }: { mission?: Mission; selectedStep?: RunStep; changes: SampleFileChange[]; onSelectStep: (id: string) => void }) {
+function MissionDetail({ mission, selectedStep, changes, committing, onSelectStep, onCreateCommit }: { mission?: Mission; selectedStep?: RunStep; changes: SampleFileChange[]; committing: boolean; onSelectStep: (id: string) => void; onCreateCommit: () => void }) {
   if (!mission) return <section className="detail panel empty-detail"><p className="eyebrow">Mission workbench</p><h2>Select a run to see its evidence and approval status.</h2><p>When you start a guided mission, this area becomes your audit trail: what happened, why it happened, and what changed.</p></section>;
   const steps = orderSteps(mission.steps);
   const events = [...steps.map((step) => ({ time: step.completedAt ?? step.startedAt, text: `${step.displayName}: ${labelStatus(step.status)}` })), ...mission.approvals.map((approval) => ({ time: approval.decidedAt, text: `Human decision: ${labelStatus(approval.outcome)}` }))].sort((left, right) => (right.time ?? "").localeCompare(left.time ?? ""));
@@ -150,14 +160,14 @@ function MissionDetail({ mission, selectedStep, changes, onSelectStep }: { missi
     <div className="mission-facts"><Fact label="Scenario" value={mission.templateId ? prettyTemplate(mission.templateId) : "Custom mission"} /><Fact label="Sample" value={mission.sampleId ?? "None"} /><Fact label="Progress" value={`${completion(mission)}% complete`} /><Fact label="Budget" value={formatBudget(mission)} /></div>
     <div className="workflow"><div className="section-title"><div><p className="eyebrow">Workflow timeline</p><h3>Follow the run from plan to review</h3></div><span>{nextAction(mission)}</span></div>{steps.map((step, index) => <button key={step.id} className={`step ${step.id === selectedStep?.id ? "selected" : ""}`} onClick={() => onSelectStep(step.id)}><span className={`step-marker ${step.status}`}>{statusSymbol(step.status)}</span><span><strong>{step.displayName}</strong><small>{labelStatus(step.status)}{step.startedAt && ` · ${formatDuration(step.startedAt, step.completedAt)}`}</small></span>{index < steps.length - 1 && <i />}</button>)}</div>
     <div className="step-inspector">{selectedStep ? <><div className="panel-heading"><div><p className="eyebrow">Selected evidence</p><h3>{selectedStep.displayName}</h3><p>{plainSummary(selectedStep)}</p></div><StatusBadge status={selectedStep.status} /></div><div className="metadata"><Fact label="Provider" value={selectedStep.provider ?? "Not run"} /><Fact label="Model" value={selectedStep.model ?? "—"} /><Fact label="Usage" value={`${selectedStep.tokenUsage ?? 0} tokens · $${selectedStep.estimatedCost ?? 0}`} /><Fact label="Retries" value={String(selectedStep.retryAttempts)} /></div><AuditDetails label="Input sent to this stage" value={selectedStep.input} /><AuditDetails label="Structured result" value={selectedStep.structuredOutput} /><AuditDetails label="Tools and evidence" value={selectedStep.toolResults} /><AuditDetails label="Operation policy" value={mission.operationPolicy} /><AuditDetails label="Rationale summary" value={selectedStep.rationaleSummary} />{selectedStep.error && <AuditDetails label={selectedStep.status === "Succeeded" ? "Prior error" : "Error"} value={selectedStep.error} open />}</> : <p className="empty-state">Select a workflow stage to inspect its evidence.</p>}</div>
-    <SourceChanges changes={changes} />
+    <SourceChanges changes={changes} canCommit={mission.status === "Completed" && mission.operationPolicy.includes("sample.git.commit") && !mission.steps.some((step) => step.nodeKey === "isolated-commit" && step.status === "Succeeded")} committing={committing} onCreateCommit={onCreateCommit} />
     <div className="audit-timeline"><p className="eyebrow">Chronological audit</p>{events.length ? events.map((event, index) => <p key={`${event.text}-${index}`}><time>{formatTimestamp(event.time)}</time>{event.text}</p>) : <p className="empty-state">No events recorded.</p>}</div>
   </section>;
 }
 
-function SourceChanges({ changes }: { changes: SampleFileChange[] }) {
+function SourceChanges({ changes, canCommit, committing, onCreateCommit }: { changes: SampleFileChange[]; canCommit: boolean; committing: boolean; onCreateCommit: () => void }) {
   if (changes.length === 0) return null;
-  return <section className="source-changes" aria-label="Reviewed source changes"><div className="section-title"><div><p className="eyebrow">Reviewed source change</p><h3>Exactly what changed in the isolated sample</h3></div><span>{changes.length} file{changes.length === 1 ? "" : "s"}</span></div>{changes.map((change) => <article key={change.path}><code>{change.path}</code><div className="diff-columns"><div><small>Before</small><pre>{change.originalContent}</pre></div><div><small>After</small><pre>{change.updatedContent}</pre></div></div></article>)}</section>;
+  return <section className="source-changes" aria-label="Reviewed source changes"><div className="section-title"><div><p className="eyebrow">Reviewed source change</p><h3>Exactly what changed in the isolated sample</h3></div><span>{changes.length} file{changes.length === 1 ? "" : "s"}</span></div>{changes.map((change) => <article key={change.path}><code>{change.path}</code><div className="diff-columns"><div><small>Before</small><pre>{change.originalContent}</pre></div><div><small>After</small><pre>{change.updatedContent}</pre></div></div></article>)}{canCommit && <div className="commit-callout"><div><strong>Ready for a reviewable record</strong><p>This creates a Git commit only in ForgeBoard’s isolated run workspace. It never touches your project repository.</p></div><button className="quiet-button" disabled={committing} onClick={onCreateCommit}>{committing ? "Recording commit…" : "Record isolated Git commit"}</button></div>}</section>;
 }
 
 function Fact({ label, value }: { label: string; value: string }) { return <span><small>{label}</small><strong>{value}</strong></span>; }

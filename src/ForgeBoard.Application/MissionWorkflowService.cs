@@ -92,6 +92,41 @@ public sealed class MissionWorkflowService(
         return await constrainedSampleExecutor.GetChangesAsync(mission.Id, sample, cancellationToken);
     }
 
+    public async Task<Mission> CreateIsolatedCommitAsync(Guid missionId, string summary, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(summary) || summary.Length > 300)
+            throw new ArgumentException("An isolated commit summary of 1 to 300 characters is required.", nameof(summary));
+        var mission = await GetAsync(missionId, cancellationToken);
+        if (mission.Status != MissionStatus.Completed)
+            throw new InvalidOperationException("Only a completed mission can create an isolated review commit.");
+        if (mission.Steps.Any(step => step.NodeKey == "isolated-commit" && step.Status == RunStepStatus.Succeeded))
+            throw new InvalidOperationException("This mission already has an isolated review commit.");
+        if (mission.SampleId is null || mission.TemplateId is null)
+            throw new InvalidOperationException("Only a completed, sample-backed template mission can create an isolated review commit.");
+        var sample = await sampleWorkspace.GetSnapshotAsync(mission.SampleId, cancellationToken)
+            ?? throw new InvalidOperationException($"Sample '{mission.SampleId}' is no longer available.");
+        var template = missionCatalog.Find(mission.TemplateId)
+            ?? throw new InvalidOperationException($"Mission template '{mission.TemplateId}' is no longer available.");
+        var step = new RunStep("isolated-commit", "Isolated Review Commit", WorkflowNodeKind.DeterministicOperation);
+        mission.AddStep(step);
+        await repository.AddStepAsync(step, cancellationToken);
+        step.Start(JsonSerializer.Serialize(new { action = "isolated-git-commit", summary = summary.Trim(), mission.OperationPolicy }), clock.UtcNow);
+        await repository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            var output = await constrainedSampleExecutor.CommitReviewedChangeAsync(mission.Id, sample, template, GetAllowedCapabilities(mission.OperationPolicy), summary, cancellationToken);
+            step.Succeed(output, clock.UtcNow);
+            StepCompleted(logger, mission.Id, step.NodeKey, output.Provider, null);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            step.Fail(exception.Message, clock.UtcNow);
+            StepFailed(logger, exception);
+        }
+        await repository.SaveChangesAsync(cancellationToken);
+        return mission;
+    }
+
     public async Task<Mission> RetryFailedStepAsync(Guid missionId, CancellationToken cancellationToken)
     {
         var mission = await repository.GetAsync(missionId, cancellationToken)
