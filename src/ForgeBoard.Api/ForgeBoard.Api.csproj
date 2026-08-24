@@ -5,4 +5,8 @@
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="App_Data\**\*.cs" />
+    <Content Remove="App_Data\**" />
+  </ItemGroup>
 </Project>

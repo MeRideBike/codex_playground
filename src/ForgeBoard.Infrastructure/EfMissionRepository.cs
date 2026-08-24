@@ -8,6 +8,10 @@ public sealed class EfMissionRepository(ForgeBoardDbContext dbContext) : IMissio
 {
     public Task AddAsync(Mission mission, CancellationToken cancellationToken) => dbContext.Missions.AddAsync(mission, cancellationToken).AsTask();
 
+    public Task AddApprovalAsync(ApprovalRecord approval, CancellationToken cancellationToken) => dbContext.ApprovalRecords.AddAsync(approval, cancellationToken).AsTask();
+
+    public Task AddStepAsync(RunStep runStep, CancellationToken cancellationToken) => dbContext.RunSteps.AddAsync(runStep, cancellationToken).AsTask();
+
     public Task<Mission?> GetAsync(Guid missionId, CancellationToken cancellationToken) => dbContext.Missions
         .Include(mission => mission.Steps).Include(mission => mission.Approvals)
         .SingleOrDefaultAsync(mission => mission.Id == missionId, cancellationToken);

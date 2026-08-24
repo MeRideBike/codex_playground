@@ -1,0 +1,28 @@
+select {
+  background: #0b1219;
+  border: 1px solid #344352;
+  border-radius: 5px;
+  color: #e6edf3;
+  padding: 10px;
+}
+
+.detail-header .sample-tag {
+  color: #e1b66c;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
+
+.detail-actions {
+  align-items:stretch;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.new-mission select {
+  background:#0b1219;
+  border:1px solid #344352;
+  border-radius:5px;
+  color:#e6edf3;
+  padding:10px;
+}
