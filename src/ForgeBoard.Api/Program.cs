@@ -10,7 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole();
 var connectionString = builder.Configuration.GetConnectionString("ForgeBoard") ?? "Data Source=forgeboard.db";
-var samplesRoot = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "samples"));
+var samplesRoot = builder.Configuration["ForgeBoard:SamplesRoot"] ?? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "samples"));
 var runWorkspacesRoot = builder.Configuration["ForgeBoard:RunWorkspacesRoot"] ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "runs");
 builder.Services.AddForgeBoardInfrastructure(connectionString, builder.Configuration, samplesRoot, runWorkspacesRoot);
 builder.Services.AddSingleton<IClock, SystemClock>();
@@ -23,6 +23,8 @@ builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 app.UseExceptionHandler();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -105,6 +107,7 @@ app.MapPost("/api/missions/{missionId:guid}/isolated-commit", async (Guid missio
     catch (ArgumentException exception) { return Results.ValidationProblem(new Dictionary<string, string[]> { ["summary"] = [exception.Message] }); }
 });
 app.MapHub<MissionHub>("/hubs/missions");
+app.MapFallbackToFile("index.html");
 app.Run();
 
 public partial class Program;

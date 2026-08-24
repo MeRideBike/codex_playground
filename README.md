@@ -118,6 +118,8 @@ To run the API in a container:
 docker compose up --build
 ```
 
+Open `http://localhost:8080` for the complete dashboard. The container serves the UI, API, bundled samples, bounded verifier, and isolated Git capability as one local-first demo.
+
 ## Architecture
 
 ```text
