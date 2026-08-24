@@ -2,15 +2,19 @@ version: 2
 updates:
   - package-ecosystem: nuget
     directory: "/"
+    target-branch: "development"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
   - package-ecosystem: npm
     directory: "/src/ForgeBoard.Web"
+    target-branch: "development"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
   - package-ecosystem: github-actions
     directory: "/"
+    target-branch: "development"
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
