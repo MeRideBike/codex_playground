@@ -2,7 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ForgeBoard.Application\ForgeBoard.Application.csproj" />
     <ProjectReference Include="..\ForgeBoard.Infrastructure\ForgeBoard.Infrastructure.csproj" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
   </ItemGroup>
 </Project>
